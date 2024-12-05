@@ -1,0 +1,438 @@
+---
+title: "Intro to R Shiny"
+author: "Nick Mackowski"
+format: 
+  revealjs:
+    scale: 0.5
+server: shiny
+---
+
+# Intro to Shiny
+
+## Super Quick Intro to Quarto
+
+-   Rmarkdown
+
+-   Can export to different formats: PDF, HTML, Typst
+
+-   gemcity.tech is created with Quarto
+
+-   Quarto Presentations: <https://quarto.org/docs/presentations/>
+
+## Intro to Shiny
+
+Shiny allows you to build web apps with streamlined development and is similar to Dash or Streamlit.
+
+-   If you don't wish to install R: <https://shinylive.io/r/examples/>
+
+    -   Shiny for Python: <https://shinylive.io/py/examples/>
+
+-   Sample and templates: <https://shiny.posit.co/py/templates/>
+
+## Shiny Comparisons
+
+<https://plotly.com/comparing-dash-shiny-streamlit/>
+
+![](images/clipboard-3997215160.png)
+
+## Step 1: Install and Load
+
+```{r}
+#| echo: true
+# Install packages
+install.packages("shiny")
+install.packages("quarto")
+install.packages("DT")
+install.packages("ggplot2")
+
+
+# Load Shiny libraries
+library(shiny)
+library(bslib) # UI toolkit based on bootstrap
+library(DT) # DataTables provides filtering, pagination, sorting, and other stuff
+library(ggplot2) # Create plots
+
+
+# bslib demo: type bslib::bs_theme_preview() in console
+```
+
+## 3 Components to Shiny app
+
+1.  UI - What your app looks like
+
+    ```{r}
+    #| echo: true
+    ui <- fluidPage( # 12-unit wide grid with ability to automatically scale components
+      
+      # nameInput(InputID, Label)
+      textInput("username", "Enter your name:"), # Where to input
+      
+      textOutput("greeting"), # Where to output
+      
+      # Look into Shiny components: https://shiny.posit.co/r/components/inputs/action-button/
+      actionButton("submit", "Submit")
+    )
+    ```
+
+2.  Server - How your app works
+
+```{r}
+#| echo: true
+server <- function(input, output, session) {
+
+ #  R has the "pipe operator" |> or %>% which chains the functions
+  output$greeting <- renderText(paste("Hello ", input$username)) |> bindEvent(input$submit)
+  
+    # Sessions
+    # Each connection to Shiny starts a new session even its the same person with multiple tabs
+    # session object can access info related to current session: https://shiny.posit.co/r/reference/shiny/1.8.0/session.html
+
+}
+```
+
+1.  Call to Shiny app function
+
+    ```{r}
+    #| echo: true
+    shinyApp(ui = ui, server = server)
+    ```
+
+## Reactive Programming: Intro
+
+-   Shiny utilizes declarative programming
+
+-   Shiny updates output automatically when input changes, called reactivity
+
+    ```{r}
+    #| echo: true
+    ui <- fluidPage(
+      textInput("name", "What's your name?"),
+      textOutput("greeting")
+    )
+
+    server <- function(input, output, session) {
+      
+      output$greeting <- renderText(paste("Hello ", input$name))
+    }
+
+    shinyApp(ui, server)
+    ```
+
+## Observers
+
+observeEvent(
+
+eventExpr = \# input to take dependency on
+
+handleExpr = \# code to be run )
+
+```{r}
+#| echo: true
+ui <- fluidPage(
+  textInput("name", "What's your name?"),
+  textOutput("greeting")
+)
+
+server <- function(input, output, session) {
+  string <- reactive(paste0("Hello ", input$name, "!"))
+
+  output$greeting <- renderText(string())
+  
+  observeEvent(input$name,message("Greeting performed"))
+}
+
+shinyApp(ui, server)
+```
+
+# Build out UI and Server with Titanic Data Frame
+
+```{r}
+#| echo: true
+# Load Titanic dataset
+data("Titanic")
+
+# Convert the table to a data frame
+titanic_df <- as.data.frame(Titanic)
+
+# Display the structure of the dataset
+str(titanic_df)
+```
+
+## UI - output Titanic data
+
+```{r}
+#| echo: true
+# shiny UI basics: https://mastering-shiny.org/basic-ui.html
+
+ui <- fluidPage(
+  
+  # Outputs are filled by server, server will have output$greeting
+  # 3 types of output: text, plot, table
+  
+  plotOutput("plot_titanic"),
+  
+  "--------------------------",
+  
+  DT::DTOutput("dynamic_titanic"),
+  
+  # bootstrap: https://bootstrapdocs.com/v3.3.6/docs/css/?#buttons
+  actionButton("submit", "Submit", class="btn btn-primary btn-lg")
+)
+```
+
+## Side quest: Quick intro to ggplot2
+
+<https://ggplot2.tidyverse.org/> and ggplot2 cheatsheet: <https://github.com/rstudio/cheatsheets/blob/main/data-visualization.pdf>
+
+ggplot(\<data\>, \<aes\>) + \<geom_function\>
+
+-   Main graphing framework in R
+
+-   aes = aesthetics (e.g. x-axis colors) and geom = geometrics (type of plot / how to connect the dots, e.g. bar graph)
+
+```{r}
+#titanic_bar <- 
+  ggplot(titanic_df, aes(x = Class, y = Freq, fill = Age)) + 
+  geom_col() +
+    labs(
+      title = "Count of Child and Adults per Class",
+      x = "Class",
+      y = "Count"
+    )
+```
+
+## Server - backend Titanic data
+
+```{r}
+#| echo: true
+server <- function(input, output, session) {
+
+  output$plot_titanic <- renderPlot(titanic_bar)
+    
+  output$dynamic_titanic <- DT::renderDT(titanic_df, options = list(pageLength = 5))
+  
+    # session object can access info related to current session: https://shiny.posit.co/r/reference/shiny/1.8.0/session.html
+
+}
+```
+
+```{r}
+#| echo: true
+shinyApp(ui = ui, server = server)
+```
+
+## Server - Logging to console
+
+```{r}
+#| echo: true
+ server <- function(input, output, session) {
+
+output$plot_titanic <- renderPlot(titanic_bar)
+
+message("plotting titanic plot")
+
+output$dynamic_titanic <- DT::renderDT(titanic_df, options = list(pageLength = 5
+                                                                  ))
+message("rendering titanic table")
+}
+```
+
+```{r}
+#| echo: true
+shinyApp(ui = ui, server = server)
+```
+
+## UI - fluidRows & tabsetPanels
+
+```{r}
+#| echo: true
+ui <- fluidPage(
+  
+  #tabsetPanel(
+    tabPanel("Class",
+  fluidRow(
+    column(4, # Each Row is made of 12 columns
+           titlePanel("Count of Child and Adults per Class")),
+    column(8,
+           plotOutput("plot_titanic"))
+  )
+  #  )
+  ,
+ # tabPanel("dataframe",
+    fluidRow(
+    column(4,
+           titlePanel("Titanic Dataset")),
+    column(8,
+           DT::DTOutput("dynamic_titanic")
+  )
+)
+)
+)
+#)
+
+server <- function(input, output, session) {
+
+output$plot_titanic <- renderPlot(titanic_bar)
+message("plotting titanic plot")
+
+output$dynamic_titanic <- DT::renderDT(titanic_df, options = list(pageLength = 5
+                                                                  ))
+message("rendering titanic table")
+}
+
+shinyApp(ui, server)
+```
+
+## UI - Navigation
+
+```{r}
+#| echo: true
+install.packages("shiny.semantic")
+library(shiny.semantic)
+
+ui <- navbarPage("Titanic Data",
+    
+    tabPanel("Class",
+      fluidRow(
+        column(4,
+               titlePanel("Count of Child and Adults per Class")),
+        column(8,
+               plotOutput("plot_titanic")
+               )
+        )
+      ),
+    tabPanel("dataframe",
+      fluidRow(
+      column(4,
+             titlePanel("Titanic Dataset")),
+      column(8,
+             DT::DTOutput("dynamic_titanic")
+             )
+        )
+      )
+)
+
+
+
+shinyApp(ui, server)
+```
+
+## Themes - Preset Themes
+
+<https://bootswatch.com/>
+
+```{r}
+#| echo: true
+#install.packages("thematic")
+library(thematic)
+```
+
+```{r}
+#| echo: true
+ui <- navbarPage("Titanic Data",
+    theme = bslib::bs_theme(bootswatch = "lumen"),
+    
+    tabPanel("Class",
+      fluidRow(
+        column(4,
+               titlePanel("Count of Child and Adults per Class")),
+        column(8,
+               plotOutput("plot_titanic")
+               )
+        )
+      ),
+    tabPanel("dataframe",
+      fluidRow(
+      column(4,
+             titlePanel("Titanic Dataset")),
+      column(8,
+             DT::DTOutput("dynamic_titanic")
+             )
+        )
+      )
+)
+
+
+server <- function(input, output, session) {
+ thematic::thematic_shiny() # automatically determine all of the settings from your app theme
+
+  
+output$plot_titanic <- renderPlot(titanic_bar)
+message("plotting titanic plot")
+
+output$dynamic_titanic <- DT::renderDT(titanic_df, options = list(pageLength = 5
+                                                                  ))
+message("rendering titanic table")
+}
+
+shinyApp(ui, server)
+```
+
+## Themes - Customized
+
+```{r}
+#| echo: true
+nick_theme <- bslib::bs_theme(
+  bg = "#F3E2D0", 
+  fg = "#82645f", 
+  base_font = "Source Sans Pro"
+)
+
+ui <- navbarPage("Titanic Data",
+    theme = nick_theme,
+    
+    tabPanel("Class",
+      fluidRow(
+        column(4,
+               titlePanel("Count of Child and Adults per Class")),
+        column(8,
+               plotOutput("plot_titanic")
+               )
+        )
+      ),
+    tabPanel("dataframe",
+      fluidRow(
+      column(4,
+             titlePanel("Titanic Dataset")),
+      column(8,
+             DT::DTOutput("dynamic_titanic")
+             )
+        )
+      )
+)
+
+shinyApp(ui, server)
+```
+
+## Plot interactivity
+
+Click and drag to create a rectangle around data points, not best example...
+
+```{r}
+#| echo: true
+titanic_scatter <-ggplot(titanic_df, aes(Class, Age)) + geom_jitter()
+  
+  
+ui <- fluidPage(
+  plotOutput("scatter", brush = "plot_brush"),
+  tableOutput("dynamic_titanic"
+              )
+)
+server <- function(input, output, session) {
+ 
+output$scatter <- renderPlot(titanic_scatter)
+message("plotting titanic plot")
+
+output$dynamic_titanic <- renderTable({
+    brushedPoints(titanic_df, input$plot_brush)
+  })
+}
+
+shinyApp(ui,server)
+```
+
+## Resources
+
+Shiny documentation: <https://shiny.posit.co/r/getstarted>
+
+Shiny templates: <https://shiny.posit.co/py/templates/>
